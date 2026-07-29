@@ -22,7 +22,6 @@ def send_welcome(message):
   if user_id not in users_balance:
     users_balance[user_id] = 0
 
-  # /start bosilganda barcha kutilayotgan holatlarni tozalab yuborish
   user_waiting_for_link[user_id] = None
   if user_id == ADMIN_ID:
     admin_withdrawing[user_id] = False
@@ -79,19 +78,19 @@ def add_balance(message):
     )
 
 
-# Tugmalar va matnlar bo'yicha javoblar
+# Barcha matnli xabarlar va tugmalar shu yerda ishlaydi
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
   user_id = message.from_user.id
+  text = message.text.strip()
 
   if user_id not in users_balance:
     users_balance[user_id] = 0
 
-  # 1. Menyu tugmalari birinchi tekshiriladi (osilib qolmasligi uchun)
-  if message.text == "💰 Balans":
-    balance = users_balance[user_id]
-    # Agar boshqa joyda havola kutish holatida qolgan bo'lsa, uni tozalaymiz
+  # 1. Balans tugmasi (emojili yoki emojisiz ishlayveradigan qilib)
+  if "Balans" in text:
     user_waiting_for_link[user_id] = None
+    balance = users_balance[user_id]
     bot.send_message(
         message.chat.id,
         f"💰 Sizning balansingiz: {balance:,} so'm\n\n"
@@ -103,7 +102,8 @@ def handle_text(message):
     )
     return
 
-  elif message.text == "⚙️ Admin Panel":
+  # 2. Admin Panel tugmasi
+  elif "Admin Panel" in text:
     user_waiting_for_link[user_id] = None
     if user_id == ADMIN_ID:
       my_income = admin_income.get(ADMIN_ID, 0)
@@ -126,7 +126,8 @@ def handle_text(message):
       bot.send_message(message.chat.id, "❌ Siz admin emassiz!")
     return
 
-  elif message.text == "🛠 Qo'llab-quvvatlash":
+  # 3. Qo'llab-quvvatlash tugmasi
+  elif "Qo'llab-quvvatlash" in text or "Qollab-quvvatlash" in text:
     user_waiting_for_link[user_id] = None
     bot.send_message(
         message.chat.id,
@@ -134,7 +135,8 @@ def handle_text(message):
     )
     return
 
-  elif message.text == "🚀 Nakrutka urish":
+  # 4. Nakrutka urish tugmasi
+  elif "Nakrutka urish" in text:
     user_waiting_for_link[user_id] = None
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
@@ -159,9 +161,9 @@ def handle_text(message):
     )
     return
 
-  # 2. Admin pul yechish uchun karta raqamini yozayotgan bo'lsa
+  # 5. Admin pul yechish uchun karta raqamini kiritayotgan bo'lsa
   if user_id == ADMIN_ID and admin_withdrawing.get(user_id, False):
-    card_number = message.text
+    card_number = text
     amount_to_withdraw = admin_income.get(ADMIN_ID, 0)
 
     if amount_to_withdraw <= 0:
@@ -182,9 +184,9 @@ def handle_text(message):
     )
     return
 
-  # 3. Foydalanuvchi tanlagan xizmatiga mos havolani yuborayotgan bo'lsa
+  # 6. Foydalanuvchi xizmat uchun Instagram havolasini yuborayotgan bo'lsa
   if user_waiting_for_link.get(user_id):
-    link = message.text
+    link = text
     service_code = user_waiting_for_link[user_id]
     user_waiting_for_link[user_id] = None  # Holatni tozalash
 
@@ -305,3 +307,4 @@ def callback_query(call):
 
 print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
 bot.infinity_polling()
+
