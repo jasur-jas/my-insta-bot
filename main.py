@@ -1,7 +1,8 @@
 import telebot
 from telebot import types
 
-TOKEN = "7953258524:AAH_gK6YmO2mQZ-jC_w_d_e_f_g_h_i_j_k"  # O'zingizning bot tokeningiz
+TOKEN = "8646999261:AAGliHfLlH-PKHJtImas9erOsXKCdsyGPxs"
+
 ADMIN_ID = 8702640490  # Sizning Telegram ID raqamingiz
 
 bot = telebot.TeleBot(TOKEN)
