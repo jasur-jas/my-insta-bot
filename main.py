@@ -111,7 +111,8 @@ def handle_text(message):
         message.chat.id,
         f"💰 Sizning balansingiz: {balance} so'm\n\n"
         f"🆔 ID'ingiz: `{user_id}`\n\n"
-        f"💳 Balansni to'ldirish uchun karta raqam:\n`8600 0000 0000 0000` (Ism Familiya)\n\n"
+        f"💳 Balansni to'ldirish uchun karta raqam:\n"
+        f"`9860 3501 4391 7341` Baratov Jasur\n\n"
         f"Pulni o'tkazib, chekni adminga yuboring: @Baratov_o6",
         parse_mode="Markdown",
     )
