@@ -35,8 +35,7 @@ def send_welcome(message):
 
   bot.send_message(
       message.chat.id,
-      "👋 Instagram nakrutka botiga xush kelibsiz.\nQuyidagi menyudan kerakli"
-      " bo'limni tanlang:",
+      "👋 Instagram nakrutka botiga xush kelibsiz.\nQuyidagi menyudan kerakli bo'limni tanlang:",
       reply_markup=markup,
   )
 
@@ -60,19 +59,16 @@ def add_balance(message):
 
     bot.send_message(
         message.chat.id,
-        f"✅ Foydalanuvchi ({target_user_id}) balansiga {amount} so'm"
-        f" qo'shildi!\nJami balans: {users_balance[target_user_id]} so'm",
+        f"✅ Foydalanuvchi ({target_user_id}) balansiga {amount} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]} so'm",
     )
     bot.send_message(
         target_user_id,
-        f"🎉 Sizning balansingizga {amount} so'm qo'shildi!\nJami balans:"
-        f" {users_balance[target_user_id]} so'm",
+        f"🎉 Sizning balansingizga {amount} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]} so'm",
     )
   except Exception as e:
     bot.send_message(
         message.chat.id,
-        "❌ Xato format!\nTo'g'ri format: `/add ID SUMMA`\nMasalan: `/add"
-        " 8702640490 50000`",
+        "❌ Xato format!\nTo'g'ri format: `/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
     )
 
 
@@ -88,8 +84,7 @@ def handle_text(message):
     balance = users_balance[user_id]
     bot.send_message(
         message.chat.id,
-        f"💰 Sizning balansingiz: {balance} so'm\n\nID'ingiz:"
-        f" `{user_id}`\nBalansni to'ldirish uchun adminga murojaat qiling.",
+        f"💰 Sizning balansingiz: {balance} so'm\n\nID'ingiz: `{user_id}`\nBalansni to'ldirish uchun adminga murojaat qiling.",
         parse_mode="Markdown",
     )
 
@@ -97,9 +92,7 @@ def handle_text(message):
     if user_id == ADMIN_ID:
       bot.send_message(
           message.chat.id,
-          "⚙️ **Admin Panel**\n\nFoydalanuvchiga balans qo'shish uchun"
-          " quyidagi formatda yozing:\n`/add ID SUMMA`\nMasalan: `/add"
-          " 8702640490 50000`",
+          "⚙️ **Admin Panel**\n\nFoydalanuvchiga balans qo'shish uchun quyidagi formatda yozing:\n`/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
           parse_mode="Markdown",
       )
     else:
@@ -108,20 +101,24 @@ def handle_text(message):
   elif message.text == "🛠 Qo'llab-quvvatlash":
     bot.send_message(
         message.chat.id,
-        "📞 Muammo yoki savollar bo'yicha adminga yozing: @jasur_jas",
+        "📞 Muammo yoki savollar bo'yicha adminga yozing: @Baratov_o6",
     )
 
   elif message.text == "🚀 Nakrutka urish":
-    markup = types.InlineKeyboardMarkup()
+    markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton(
-            "👤 Obunachi (1000 ta = 15,000 so'm)", callback_data="order_subs"
-        )
-    )
-    markup.add(
+            "👤 Obunachi (1000 ta = 17,000 so'm)", callback_data="order_subs"
+        ),
         types.InlineKeyboardButton(
-            "❤️ Layk (1000 ta = 5,000 so'm)", callback_data="order_likes"
-        )
+            "❤️ Layk (1000 ta = 8,000 so'm)", callback_data="order_likes"
+        ),
+        types.InlineKeyboardButton(
+            "👀 Tomosha/Ko'rish (1000 ta = 2,000 so'm)", callback_data="order_views"
+        ),
+        types.InlineKeyboardButton(
+            "💬 Kommentariya (100 ta = 10,000 so'm)", callback_data="order_comments"
+        ),
     )
     bot.send_message(
         message.chat.id,
@@ -138,15 +135,14 @@ def callback_query(call):
     users_balance[user_id] = 0
 
   if call.data == "order_subs":
-    if users_balance[user_id] >= 15000:
-      users_balance[user_id] -= 15000
+    if users_balance[user_id] >= 17000:
+      users_balance[user_id] -= 17000
       bot.answer_callback_query(
           call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
       )
       bot.send_message(
           call.message.chat.id,
-          "🚀 Obunachi buyurtmangiz bazaga qo'shildi!\nQolgan balans:"
-          f" {users_balance[user_id]} so'm",
+          f"🚀 Obunachi buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
       )
     else:
       bot.answer_callback_query(
@@ -154,15 +150,44 @@ def callback_query(call):
       )
 
   elif call.data == "order_likes":
-    if users_balance[user_id] >= 5000:
-      users_balance[user_id] -= 5000
+    if users_balance[user_id] >= 8000:
+      users_balance[user_id] -= 8000
       bot.answer_callback_query(
           call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
       )
       bot.send_message(
           call.message.chat.id,
-          "🚀 Layk buyurtmangiz bazaga qo'shildi!\nQolgan balans:"
-          f" {users_balance[user_id]} so'm",
+          f"🚀 Layk buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
+      )
+    else:
+      bot.answer_callback_query(
+          call.id, "❌ Balansingiz yetarli emas!", show_alert=True
+      )
+
+  elif call.data == "order_views":
+    if users_balance[user_id] >= 2000:
+      users_balance[user_id] -= 2000
+      bot.answer_callback_query(
+          call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
+      )
+      bot.send_message(
+          call.message.chat.id,
+          f"🚀 Tomosha (ko'rish) buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
+      )
+    else:
+      bot.answer_callback_query(
+          call.id, "❌ Balansingiz yetarli emas!", show_alert=True
+      )
+
+  elif call.data == "order_comments":
+    if users_balance[user_id] >= 10000:
+      users_balance[user_id] -= 10000
+      bot.answer_callback_query(
+          call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
+      )
+      bot.send_message(
+          call.message.chat.id,
+          f"🚀 Kommentariya buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
       )
     else:
       bot.answer_callback_query(
@@ -172,3 +197,4 @@ def callback_query(call):
 
 print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
 bot.infinity_polling()
+
