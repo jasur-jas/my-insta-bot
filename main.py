@@ -4,9 +4,6 @@ from telebot import types
 TOKEN = "8646999261:AAGliHfLlH-PKHJtImas9erOsXKCdsyGPxs"
 ADMIN_ID = 8702640490  # Sizning Telegram ID raqamingiz
 
-# Click orqali to'lov qabul qilish uchun BotFather'dan olinadigan token
-CLICK_PROVIDER_TOKEN = "BU_YERGA_CLICK_TOKENINGIZNI_YOZING"
-
 bot = telebot.TeleBot(TOKEN)
 
 # Ma'lumotlar bazasi
@@ -110,17 +107,13 @@ def handle_text(message):
 
   if message.text == "💰 Balans":
     balance = users_balance[user_id]
-    markup = types.InlineKeyboardMarkup()
-    markup.add(
-        types.InlineKeyboardButton(
-            "💳 Balansni to'ldirish (Click)", callback_data="top_up_click"
-        )
-    )
     bot.send_message(
         message.chat.id,
-        f"💰 Sizning balansingiz: {balance} so'm\n\nID'ingiz: `{user_id}`",
+        f"💰 Sizning balansingiz: {balance} so'm\n\n"
+        f"🆔 ID'ingiz: `{user_id}`\n\n"
+        f"💳 Balansni to'ldirish uchun karta raqam:\n`8600 0000 0000 0000` (Ism Familiya)\n\n"
+        f"Pulni o'tkazib, chekni adminga yuboring: @Baratov_o6",
         parse_mode="Markdown",
-        reply_markup=markup,
     )
 
   elif message.text == "⚙️ Admin Panel":
@@ -194,52 +187,8 @@ def withdraw_callback(call):
       call.message.chat.id,
       f"💳 **Pulni yechib olish**\n\n"
       f"Jami yechiladigan summa: **{my_income} so'm**\n\n"
-      f"Iltimos, pulni tashlab berishimiz uchun **karta raqamingizni** yuboring (masalan: `8600 1234 5678 9012`):",
+      f"Iltimos, pulni tashlab berishimiz uchun **karta raqamingizni** yuboring:",
       parse_mode="Markdown",
-  )
-
-
-# Balansni to'ldirish tugmasi
-@bot.callback_query_handler(func=lambda call: call.data == "top_up_click")
-def top_up_click(call):
-  chat_id = call.message.chat.id
-  title = "Balansni to'ldirish"
-  description = "Botdagi balansingizni to'ldirish"
-  payload = "balance-top-up"
-  currency = "UZS"
-  prices = [types.LabeledPrice(label="Balansni to'ldirish", amount=1000000)]
-
-  bot.send_invoice(
-      chat_id,
-      title=title,
-      description=description,
-      invoice_payload=payload,
-      provider_token=CLICK_PROVIDER_TOKEN,
-      currency=currency,
-      prices=prices,
-      start_parameter="top-up",
-  )
-
-
-@bot.pre_checkout_query_handler(func=lambda query: True)
-def checkout(pre_checkout_query):
-  bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
-
-
-@bot.message_handler(content_types=['successful_payment'])
-def got_payment(message):
-  user_id = message.from_user.id
-  payment_amount = message.successful_payment.total_amount // 100
-
-  if user_id not in users_balance:
-    users_balance[user_id] = 0
-
-  users_balance[user_id] += payment_amount
-  admin_income[ADMIN_ID] = admin_income.get(ADMIN_ID, 0) + payment_amount
-
-  bot.send_message(
-      message.chat.id,
-      f"✅ To'lov muvaffaqiyatli amalga oshirildi!\n💰 Balansingizga {payment_amount} so'm qo'shildi.\nJami balans: {users_balance[user_id]} so'm",
   )
 
 
