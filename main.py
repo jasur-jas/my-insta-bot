@@ -13,6 +13,9 @@ bot = telebot.TeleBot(TOKEN)
 users_balance = {}  # {user_id: balance}
 admin_income = {ADMIN_ID: 0}  # Sizning daromadingiz (kassangiz)
 
+# Admin karta raqamini kiritishi uchun vaqtinchalik holat
+admin_withdrawing = {}
+
 
 # /start komandasi
 @bot.message_handler(commands=['start'])
@@ -73,10 +76,34 @@ def add_balance(message):
     )
 
 
-# Tugmalar bo'yicha javoblar
+# Tugmalar va matnlar bo'yicha javoblar
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
   user_id = message.from_user.id
+
+  # Agar admin pul yechish uchun karta raqamini yozayotgan bo'lsa
+  if user_id == ADMIN_ID and admin_withdrawing.get(user_id, False):
+    card_number = message.text
+    amount_to_withdraw = admin_income.get(ADMIN_ID, 0)
+
+    if amount_to_withdraw <= 0:
+      bot.send_message(message.chat.id, "❌ Kassangizda yechib olish uchun pul yo'q.")
+      admin_withdrawing[user_id] = False
+      return
+
+    # Kassani 0 qilish va holatni yopish
+    admin_income[ADMIN_ID] = 0
+    admin_withdrawing[user_id] = False
+
+    bot.send_message(
+        message.chat.id,
+        f"✅ **Pulni yechish bo'yicha so'rov yuborildi!**\n\n"
+        f"💳 Karta: `{card_number}`\n"
+        f"💵 Summa: {amount_to_withdraw} so'm\n\n"
+        f"Tez orada ko'rsatilgan kartaga pul o'tkazib beriladi.",
+        parse_mode="Markdown",
+    )
+    return
 
   if user_id not in users_balance:
     users_balance[user_id] = 0
@@ -99,6 +126,12 @@ def handle_text(message):
   elif message.text == "⚙️ Admin Panel":
     if user_id == ADMIN_ID:
       my_income = admin_income.get(ADMIN_ID, 0)
+      markup = types.InlineKeyboardMarkup()
+      markup.add(
+          types.InlineKeyboardButton(
+              "💵 Pulni yechib olish", callback_data="withdraw_income"
+          )
+      )
       bot.send_message(
           message.chat.id,
           f"⚙️ **Admin Panel**\n\n"
@@ -106,6 +139,7 @@ def handle_text(message):
           f"Foydalanuvchiga balans qo'shish uchun quyidagi formatda yozing:\n"
           f"`/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
           parse_mode="Markdown",
+          reply_markup=markup,
       )
     else:
       bot.send_message(message.chat.id, "❌ Siz admin emassiz!")
@@ -138,6 +172,31 @@ def handle_text(message):
         "📦 Kerakli xizmat turini tanlang:",
         reply_markup=markup,
     )
+
+
+# Admin pul yechish tugmasini bosganda
+@bot.callback_query_handler(func=lambda call: call.data == "withdraw_income")
+def withdraw_callback(call):
+  user_id = call.from_user.id
+  if user_id != ADMIN_ID:
+    return
+
+  my_income = admin_income.get(ADMIN_ID, 0)
+  if my_income <= 0:
+    bot.answer_callback_query(
+        call.id, "❌ Kassangizda yechib olish uchun pul yo'q!", show_alert=True
+    )
+    return
+
+  admin_withdrawing[user_id] = True
+  bot.answer_callback_query(call.id)
+  bot.send_message(
+      call.message.chat.id,
+      f"💳 **Pulni yechib olish**\n\n"
+      f"Jami yechiladigan summa: **{my_income} so'm**\n\n"
+      f"Iltimos, pulni tashlab berishimiz uchun **karta raqamingizni** yuboring (masalan: `8600 1234 5678 9012`):",
+      parse_mode="Markdown",
+  )
 
 
 # Balansni to'ldirish tugmasi
@@ -176,7 +235,6 @@ def got_payment(message):
     users_balance[user_id] = 0
 
   users_balance[user_id] += payment_amount
-  # Click orqali tushgan pul ham adminga tushadi
   admin_income[ADMIN_ID] = admin_income.get(ADMIN_ID, 0) + payment_amount
 
   bot.send_message(
@@ -192,10 +250,9 @@ def callback_query(call):
   if user_id not in users_balance:
     users_balance[user_id] = 0
 
-  # Xizmat narxi va sizga qoladigan sof foyda (tannarx ayirilgandagi sof foyda)
   if call.data == "order_subs":
-    price = 20000  # Sotilish narxi
-    profit = 10000  # Sizga qoladigan sof foyda
+    price = 20000
+    profit = 10000
     service_name = "Obunachi"
   elif call.data == "order_likes":
     price = 8000
@@ -214,8 +271,6 @@ def callback_query(call):
 
   if users_balance[user_id] >= price:
     users_balance[user_id] -= price
-
-    # Xizmat sotilganda sizning sof foydangiz admin kassasiga qo'shiladi
     admin_income[ADMIN_ID] = admin_income.get(ADMIN_ID, 0) + profit
 
     bot.answer_callback_query(call.id, "✅ Buyurtma qabul qilindi!")
@@ -231,3 +286,4 @@ def callback_query(call):
 
 print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
 bot.infinity_polling()
+
