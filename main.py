@@ -114,10 +114,11 @@ def handle_text(message):
             "❤️ Layk (1000 ta = 8,000 so'm)", callback_data="order_likes"
         ),
         types.InlineKeyboardButton(
-            "👀 Tomosha/Ko'rish (1000 ta = 2,000 so'm)", callback_data="order_views"
+            "👀 Tomosha (1000 ta = 6,000 so'm)", callback_data="order_views"
         ),
         types.InlineKeyboardButton(
-            "💬 Kommentariya (100 ta = 10,000 so'm)", callback_data="order_comments"
+            "💬 Kommentariya (100 ta = 15,000 so'm)",
+            callback_data="order_comments",
         ),
     )
     bot.send_message(
@@ -165,14 +166,14 @@ def callback_query(call):
       )
 
   elif call.data == "order_views":
-    if users_balance[user_id] >= 2000:
-      users_balance[user_id] -= 2000
+    if users_balance[user_id] >= 6000:
+      users_balance[user_id] -= 6000
       bot.answer_callback_query(
           call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
       )
       bot.send_message(
           call.message.chat.id,
-          f"🚀 Tomosha (ko'rish) buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
+          f"🚀 Tomosha buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
       )
     else:
       bot.answer_callback_query(
@@ -180,8 +181,8 @@ def callback_query(call):
       )
 
   elif call.data == "order_comments":
-    if users_balance[user_id] >= 10000:
-      users_balance[user_id] -= 10000
+    if users_balance[user_id] >= 15000:
+      users_balance[user_id] -= 15000
       bot.answer_callback_query(
           call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
       )
