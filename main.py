@@ -10,8 +10,9 @@ bot = telebot.TeleBot(TOKEN)
 users_balance = {}  # {user_id: balance}
 admin_income = {ADMIN_ID: 0}  # Sizning daromadingiz (kassangiz)
 
-# Admin karta raqamini kiritishi uchun vaqtinchalik holat
+# Admin va foydalanuvchilarning vaqtinchalik holatlari
 admin_withdrawing = {}
+user_waiting_for_link = {}  # {user_id: service_code}
 
 
 # /start komandasi
@@ -60,11 +61,11 @@ def add_balance(message):
 
     bot.send_message(
         message.chat.id,
-        f"✅ Foydalanuvchi ({target_user_id}) balansiga {amount} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]} so'm",
+        f"✅ Foydalanuvchi ({target_user_id}) balansiga {amount:,} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]:,} so'm",
     )
     bot.send_message(
         target_user_id,
-        f"🎉 Sizning balansingizga {amount} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]} so'm",
+        f"🎉 Sizning balansingizga {amount:,} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]:,} so'm",
     )
   except Exception as e:
     bot.send_message(
@@ -78,7 +79,7 @@ def add_balance(message):
 def handle_text(message):
   user_id = message.from_user.id
 
-  # Agar admin pul yechish uchun karta raqamini yozayotgan bo'lsa
+  # 1. Admin pul yechish uchun karta raqamini yozayotgan bo'lsa
   if user_id == ADMIN_ID and admin_withdrawing.get(user_id, False):
     card_number = message.text
     amount_to_withdraw = admin_income.get(ADMIN_ID, 0)
@@ -88,7 +89,6 @@ def handle_text(message):
       admin_withdrawing[user_id] = False
       return
 
-    # Kassani 0 qilish va holatni yopish
     admin_income[ADMIN_ID] = 0
     admin_withdrawing[user_id] = False
 
@@ -96,7 +96,7 @@ def handle_text(message):
         message.chat.id,
         f"✅ **Pulni yechish bo'yicha so'rov yuborildi!**\n\n"
         f"💳 Karta: `{card_number}`\n"
-        f"💵 Summa: {amount_to_withdraw} so'm\n\n"
+        f"💵 Summa: {amount_to_withdraw:,} so'm\n\n"
         f"Tez orada ko'rsatilgan kartaga pul o'tkazib beriladi.",
         parse_mode="Markdown",
     )
@@ -105,11 +105,81 @@ def handle_text(message):
   if user_id not in users_balance:
     users_balance[user_id] = 0
 
+  # 2. Foydalanuvchi tanlagan xizmatiga mos havolani yuborayotgan bo'lsa
+  if user_id in user_waiting_for_link and user_waiting_for_link[user_id]:
+    link = message.text
+    service_code = user_waiting_for_link[user_id]
+    user_waiting_for_link[user_id] = None  # Holatni tozalash
+
+    services = {
+        "order_subs": {
+            "name": "Obunachi (1000 ta)",
+            "price": 20000,
+            "profit": 10000,
+        },
+        "order_likes": {
+            "name": "Layk (1000 ta)",
+            "price": 8000,
+            "profit": 7000,
+        },
+        "order_views": {
+            "name": "Tomosha (1000 ta)",
+            "price": 6000,
+            "profit": 5000,
+        },
+        "order_comments": {
+            "name": "Kommentariya (100 ta)",
+            "price": 15000,
+            "profit": 10000,
+        },
+    }
+
+    if service_code not in services:
+      bot.send_message(message.chat.id, "❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
+      return
+
+    s_info = services[service_code]
+    price = s_info["price"]
+    profit = s_info["profit"]
+    service_name = s_info["name"]
+
+    if users_balance[user_id] >= price:
+      users_balance[user_id] -= price
+      admin_income[ADMIN_ID] = admin_income.get(ADMIN_ID, 0) + profit
+
+      bot.send_message(
+          message.chat.id,
+          f"✅ **Buyurtma qabul qilindi!**\n\n"
+          f"📦 Xizmat: {service_name}\n"
+          f"🔗 Havola: {link}\n"
+          f"💰 Yechildi: {price:,} so'm\n"
+          f"💳 Qolgan balans: {users_balance[user_id]:,} so'm\n\n"
+          f"Tez orada bajariladi!",
+          parse_mode="Markdown",
+      )
+
+      bot.send_message(
+          ADMIN_ID,
+          f"🔔 **Yangi buyurtma!**\n\n"
+          f"👤 Foydalanuvchi ID: `{user_id}`\n"
+          f"📦 Xizmat: {service_name}\n"
+          f"🔗 Havola: {link}\n"
+          f"💵 Tushgan foyda: {profit:,} so'm",
+          parse_mode="Markdown",
+      )
+    else:
+      bot.send_message(
+          message.chat.id,
+          f"❌ Balansingiz yetarli emas!\nKerakli summa: {price:,} so'm. Sizning balansingiz: {users_balance[user_id]:,} so'm",
+      )
+    return
+
+  # Oddiy menyular
   if message.text == "💰 Balans":
     balance = users_balance[user_id]
     bot.send_message(
         message.chat.id,
-        f"💰 Sizning balansingiz: {balance} so'm\n\n"
+        f"💰 Sizning balansingiz: {balance:,} so'm\n\n"
         f"🆔 ID'ingiz: `{user_id}`\n\n"
         f"💳 Balansni to'ldirish uchun karta raqam:\n"
         f"`9860 3501 4391 7341` Baratov Jasur\n\n"
@@ -129,7 +199,7 @@ def handle_text(message):
       bot.send_message(
           message.chat.id,
           f"⚙️ **Admin Panel**\n\n"
-          f"💵 **Sizning umumiy daromadingiz (foydangiz):** {my_income} so'm\n\n"
+          f"💵 **Sizning umumiy daromadingiz (foydangiz):** {my_income:,} so'm\n\n"
           f"Foydalanuvchiga balans qo'shish uchun quyidagi formatda yozing:\n"
           f"`/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
           parse_mode="Markdown",
@@ -168,7 +238,7 @@ def handle_text(message):
     )
 
 
-# Admin pul yechish tugmasini bosganda
+# Admin pul yechish tugmasi
 @bot.callback_query_handler(func=lambda call: call.data == "withdraw_income")
 def withdraw_callback(call):
   user_id = call.from_user.id
@@ -187,53 +257,37 @@ def withdraw_callback(call):
   bot.send_message(
       call.message.chat.id,
       f"💳 **Pulni yechib olish**\n\n"
-      f"Jami yechiladigan summa: **{my_income} so'm**\n\n"
+      f"Jami yechiladigan summa: **{my_income:,} so'm**\n\n"
       f"Iltimos, pulni tashlab berishimiz uchun **karta raqamingizni** yuboring:",
       parse_mode="Markdown",
   )
 
 
-# Inline buyurtmalar va foydani adminga yozish
+# Xizmat tugmalaridan biri bosilganda
 @bot.callback_query_handler(func=lambda call: call.data.startswith("order_"))
 def callback_query(call):
   user_id = call.from_user.id
-  if user_id not in users_balance:
-    users_balance[user_id] = 0
+  service_code = call.data
 
-  if call.data == "order_subs":
-    price = 20000
-    profit = 10000
-    service_name = "Obunachi"
-  elif call.data == "order_likes":
-    price = 8000
-    profit = 7000
-    service_name = "Layk"
-  elif call.data == "order_views":
-    price = 6000
-    profit = 5000
-    service_name = "Tomosha"
-  elif call.data == "order_comments":
-    price = 15000
-    profit = 10000
-    service_name = "Kommentariya"
-  else:
+  service_names = {
+      "order_subs": "Obunachi (1000 ta)",
+      "order_likes": "Layk (1000 ta)",
+      "order_views": "Tomosha (1000 ta)",
+      "order_comments": "Kommentariya (100 ta)",
+  }
+
+  if service_code not in service_names:
     return
 
-  if users_balance[user_id] >= price:
-    users_balance[user_id] -= price
-    admin_income[ADMIN_ID] = admin_income.get(ADMIN_ID, 0) + profit
+  user_waiting_for_link[user_id] = service_code
 
-    bot.answer_callback_query(call.id, "✅ Buyurtma qabul qilindi!")
-    bot.send_message(
-        call.message.chat.id,
-        f"🚀 {service_name} buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
-    )
-  else:
-    bot.answer_callback_query(
-        call.id, "❌ Balansingiz yetarli emas!", show_alert=True
-    )
+  bot.answer_callback_query(call.id)
+  bot.send_message(
+      call.message.chat.id,
+      f"🔗 Iltimos, **{service_names[service_code]}** uchun kerakli **Instagram havolasini** yuboring:",
+      parse_mode="Markdown",
+  )
 
 
 print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
 bot.infinity_polling()
-
