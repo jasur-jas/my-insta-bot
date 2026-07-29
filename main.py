@@ -22,6 +22,11 @@ def send_welcome(message):
   if user_id not in users_balance:
     users_balance[user_id] = 0
 
+  # /start bosilganda barcha kutilayotgan holatlarni tozalab yuborish
+  user_waiting_for_link[user_id] = None
+  if user_id == ADMIN_ID:
+    admin_withdrawing[user_id] = False
+
   markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
   btn1 = types.KeyboardButton("🚀 Nakrutka urish")
   btn2 = types.KeyboardButton("💰 Balans")
@@ -79,7 +84,82 @@ def add_balance(message):
 def handle_text(message):
   user_id = message.from_user.id
 
-  # 1. Admin pul yechish uchun karta raqamini yozayotgan bo'lsa
+  if user_id not in users_balance:
+    users_balance[user_id] = 0
+
+  # 1. Menyu tugmalari birinchi tekshiriladi (osilib qolmasligi uchun)
+  if message.text == "💰 Balans":
+    balance = users_balance[user_id]
+    # Agar boshqa joyda havola kutish holatida qolgan bo'lsa, uni tozalaymiz
+    user_waiting_for_link[user_id] = None
+    bot.send_message(
+        message.chat.id,
+        f"💰 Sizning balansingiz: {balance:,} so'm\n\n"
+        f"🆔 ID'ingiz: `{user_id}`\n\n"
+        f"💳 Balansni to'ldirish uchun karta raqam:\n"
+        f"`9860 3501 4391 7341` Baratov Jasur\n\n"
+        f"Pulni o'tkazib, chekni adminga yuboring: @Baratov_o6",
+        parse_mode="Markdown",
+    )
+    return
+
+  elif message.text == "⚙️ Admin Panel":
+    user_waiting_for_link[user_id] = None
+    if user_id == ADMIN_ID:
+      my_income = admin_income.get(ADMIN_ID, 0)
+      markup = types.InlineKeyboardMarkup()
+      markup.add(
+          types.InlineKeyboardButton(
+              "💵 Pulni yechib olish", callback_data="withdraw_income"
+          )
+      )
+      bot.send_message(
+          message.chat.id,
+          f"⚙️ **Admin Panel**\n\n"
+          f"💵 **Sizning umumiy daromadingiz (foydangiz):** {my_income:,} so'm\n\n"
+          f"Foydalanuvchiga balans qo'shish uchun quyidagi formatda yozing:\n"
+          f"`/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
+          parse_mode="Markdown",
+          reply_markup=markup,
+      )
+    else:
+      bot.send_message(message.chat.id, "❌ Siz admin emassiz!")
+    return
+
+  elif message.text == "🛠 Qo'llab-quvvatlash":
+    user_waiting_for_link[user_id] = None
+    bot.send_message(
+        message.chat.id,
+        "📞 Muammo yoki savollar bo'yicha adminga yozing: @Baratov_o6",
+    )
+    return
+
+  elif message.text == "🚀 Nakrutka urish":
+    user_waiting_for_link[user_id] = None
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup.add(
+        types.InlineKeyboardButton(
+            "👤 Obunachi (1000 ta = 20,000 so'm)", callback_data="order_subs"
+        ),
+        types.InlineKeyboardButton(
+            "❤️ Layk (1000 ta = 8,000 so'm)", callback_data="order_likes"
+        ),
+        types.InlineKeyboardButton(
+            "👀 Tomosha (1000 ta = 6,000 so'm)", callback_data="order_views"
+        ),
+        types.InlineKeyboardButton(
+            "💬 Kommentariya (100 ta = 15,000 so'm)",
+            callback_data="order_comments",
+        ),
+    )
+    bot.send_message(
+        message.chat.id,
+        "📦 Kerakli xizmat turini tanlang:",
+        reply_markup=markup,
+    )
+    return
+
+  # 2. Admin pul yechish uchun karta raqamini yozayotgan bo'lsa
   if user_id == ADMIN_ID and admin_withdrawing.get(user_id, False):
     card_number = message.text
     amount_to_withdraw = admin_income.get(ADMIN_ID, 0)
@@ -102,11 +182,8 @@ def handle_text(message):
     )
     return
 
-  if user_id not in users_balance:
-    users_balance[user_id] = 0
-
-  # 2. Foydalanuvchi tanlagan xizmatiga mos havolani yuborayotgan bo'lsa
-  if user_id in user_waiting_for_link and user_waiting_for_link[user_id]:
+  # 3. Foydalanuvchi tanlagan xizmatiga mos havolani yuborayotgan bo'lsa
+  if user_waiting_for_link.get(user_id):
     link = message.text
     service_code = user_waiting_for_link[user_id]
     user_waiting_for_link[user_id] = None  # Holatni tozalash
@@ -173,69 +250,6 @@ def handle_text(message):
           f"❌ Balansingiz yetarli emas!\nKerakli summa: {price:,} so'm. Sizning balansingiz: {users_balance[user_id]:,} so'm",
       )
     return
-
-  # Oddiy menyular
-  if message.text == "💰 Balans":
-    balance = users_balance[user_id]
-    bot.send_message(
-        message.chat.id,
-        f"💰 Sizning balansingiz: {balance:,} so'm\n\n"
-        f"🆔 ID'ingiz: `{user_id}`\n\n"
-        f"💳 Balansni to'ldirish uchun karta raqam:\n"
-        f"`9860 3501 4391 7341` Baratov Jasur\n\n"
-        f"Pulni o'tkazib, chekni adminga yuboring: @Baratov_o6",
-        parse_mode="Markdown",
-    )
-
-  elif message.text == "⚙️ Admin Panel":
-    if user_id == ADMIN_ID:
-      my_income = admin_income.get(ADMIN_ID, 0)
-      markup = types.InlineKeyboardMarkup()
-      markup.add(
-          types.InlineKeyboardButton(
-              "💵 Pulni yechib olish", callback_data="withdraw_income"
-          )
-      )
-      bot.send_message(
-          message.chat.id,
-          f"⚙️ **Admin Panel**\n\n"
-          f"💵 **Sizning umumiy daromadingiz (foydangiz):** {my_income:,} so'm\n\n"
-          f"Foydalanuvchiga balans qo'shish uchun quyidagi formatda yozing:\n"
-          f"`/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
-          parse_mode="Markdown",
-          reply_markup=markup,
-      )
-    else:
-      bot.send_message(message.chat.id, "❌ Siz admin emassiz!")
-
-  elif message.text == "🛠 Qo'llab-quvvatlash":
-    bot.send_message(
-        message.chat.id,
-        "📞 Muammo yoki savollar bo'yicha adminga yozing: @Baratov_o6",
-    )
-
-  elif message.text == "🚀 Nakrutka urish":
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton(
-            "👤 Obunachi (1000 ta = 20,000 so'm)", callback_data="order_subs"
-        ),
-        types.InlineKeyboardButton(
-            "❤️ Layk (1000 ta = 8,000 so'm)", callback_data="order_likes"
-        ),
-        types.InlineKeyboardButton(
-            "👀 Tomosha (1000 ta = 6,000 so'm)", callback_data="order_views"
-        ),
-        types.InlineKeyboardButton(
-            "💬 Kommentariya (100 ta = 15,000 so'm)",
-            callback_data="order_comments",
-        ),
-    )
-    bot.send_message(
-        message.chat.id,
-        "📦 Kerakli xizmat turini tanlang:",
-        reply_markup=markup,
-    )
 
 
 # Admin pul yechish tugmasi
