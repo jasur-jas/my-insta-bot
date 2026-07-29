@@ -108,7 +108,7 @@ def handle_text(message):
     markup = types.InlineKeyboardMarkup(row_width=1)
     markup.add(
         types.InlineKeyboardButton(
-            "👤 Obunachi (1000 ta = 17,000 so'm)", callback_data="order_subs"
+            "👤 Obunachi (1000 ta = 20,000 so'm)", callback_data="order_subs"
         ),
         types.InlineKeyboardButton(
             "❤️ Layk (1000 ta = 8,000 so'm)", callback_data="order_likes"
@@ -136,8 +136,8 @@ def callback_query(call):
     users_balance[user_id] = 0
 
   if call.data == "order_subs":
-    if users_balance[user_id] >= 17000:
-      users_balance[user_id] -= 17000
+    if users_balance[user_id] >= 20000:
+      users_balance[user_id] -= 20000
       bot.answer_callback_query(
           call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
       )
@@ -198,4 +198,3 @@ def callback_query(call):
 
 print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
 bot.infinity_polling()
-
