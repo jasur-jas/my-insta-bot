@@ -2,14 +2,17 @@ import telebot
 from telebot import types
 
 TOKEN = "8646999261:AAGliHfLlH-PKHJtImas9erOsXKCdsyGPxs"
-
 ADMIN_ID = 8702640490  # Sizning Telegram ID raqamingiz
+
+# Click orqali to'lov qabul qilish uchun BotFather'dan olinadigan token (Provider Token)
+CLICK_PROVIDER_TOKEN = (
+    "BU_YERGA_CLICK_TOKENINGIZNI_YOZING"  # Masalan: 123456789:LIVE:12345
+)
 
 bot = telebot.TeleBot(TOKEN)
 
 # Vaqtinchalik ma'lumotlar bazasi (lug'atlar)
 users_balance = {}  # {user_id: balance}
-user_orders = {}  # {user_id: [orders]}
 
 
 # /start komandasi
@@ -24,7 +27,6 @@ def send_welcome(message):
   btn2 = types.KeyboardButton("💰 Balans")
   btn3 = types.KeyboardButton("🛠 Qo'llab-quvvatlash")
 
-  # Faqat adminga Admin Panel tugmasini chiqarish
   if user_id == ADMIN_ID:
     btn_admin = types.KeyboardButton("⚙️ Admin Panel")
     markup.add(btn1, btn2)
@@ -82,10 +84,17 @@ def handle_text(message):
 
   if message.text == "💰 Balans":
     balance = users_balance[user_id]
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton(
+            "💳 Balansni to'ldirish (Click)", callback_data="top_up_click"
+        )
+    )
     bot.send_message(
         message.chat.id,
-        f"💰 Sizning balansingiz: {balance} so'm\n\nID'ingiz: `{user_id}`\nBalansni to'ldirish uchun adminga murojaat qiling.",
+        f"💰 Sizning balansingiz: {balance} so'm\n\nID'ingiz: `{user_id}`",
         parse_mode="Markdown",
+        reply_markup=markup,
     )
 
   elif message.text == "⚙️ Admin Panel":
@@ -128,72 +137,89 @@ def handle_text(message):
     )
 
 
-# Inline tugmalar uchun handler
-@bot.callback_query_handler(func=lambda call: True)
+# Balansni to'ldirish tugmasi bosilganda Click hisob-fakturasini yuborish
+@bot.callback_query_handler(func=lambda call: call.data == "top_up_click")
+def top_up_click(call):
+  chat_id = call.message.chat.id
+  title = "Balansni to'ldirish"
+  description = (
+      "Botdagi balansingizni Click orqali to'ldirish uchun 10,000 so'm"
+  )
+  payload = "balance-top-up"
+  currency = "UZS"
+  # Narx tiyinlarda ko'rsatiladi (10 000 so'm = 1000000 tiyin)
+  prices = [types.LabeledPrice(label="Balansni to'ldirish", amount=1000000)]
+
+  bot.send_invoice(
+      chat_id,
+      title=title,
+      description=description,
+      invoice_payload=payload,
+      provider_token=CLICK_PROVIDER_TOKEN,
+      currency=currency,
+      prices=prices,
+      start_parameter="top-up",
+  )
+
+
+# To'lovdan oldingi tekshiruv (Pre-checkout)
+@bot.pre_checkout_query_handler(func=lambda query: True)
+def checkout(pre_checkout_query):
+  bot.answer_pre_checkout_query(pre_checkout_query.id, ok=True)
+
+
+# Muvaffaqiyatli to'lov amalga oshirilgandan keyin ishlaydigan qism
+@bot.message_handler(content_types=['successful_payment'])
+def got_payment(message):
+  user_id = message.from_user.id
+  payment_amount = (
+      message.successful_payment.total_amount // 100
+  )  # tiyindan so'mga o'tkazish
+
+  if user_id not in users_balance:
+    users_balance[user_id] = 0
+
+  users_balance[user_id] += payment_amount
+
+  bot.send_message(
+      message.chat.id,
+      f"✅ To'lov muvaffaqiyatli amalga oshirildi!\n💰 Balansingizga {payment_amount} so'm qo'shildi.\nJami balans: {users_balance[user_id]} so'm",
+  )
+
+
+# Inline buyurtmalar uchun handler
+@bot.callback_query_handler(func=lambda call: call.data.startswith("order_"))
 def callback_query(call):
   user_id = call.from_user.id
   if user_id not in users_balance:
     users_balance[user_id] = 0
 
   if call.data == "order_subs":
-    if users_balance[user_id] >= 20000:
-      users_balance[user_id] -= 20000
-      bot.answer_callback_query(
-          call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
-      )
-      bot.send_message(
-          call.message.chat.id,
-          f"🚀 Obunachi buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
-      )
-    else:
-      bot.answer_callback_query(
-          call.id, "❌ Balansingiz yetarli emas!", show_alert=True
-      )
-
+    price = 20000
+    service_name = "Obunachi"
   elif call.data == "order_likes":
-    if users_balance[user_id] >= 8000:
-      users_balance[user_id] -= 8000
-      bot.answer_callback_query(
-          call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
-      )
-      bot.send_message(
-          call.message.chat.id,
-          f"🚀 Layk buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
-      )
-    else:
-      bot.answer_callback_query(
-          call.id, "❌ Balansingiz yetarli emas!", show_alert=True
-      )
-
+    price = 8000
+    service_name = "Layk"
   elif call.data == "order_views":
-    if users_balance[user_id] >= 6000:
-      users_balance[user_id] -= 6000
-      bot.answer_callback_query(
-          call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
-      )
-      bot.send_message(
-          call.message.chat.id,
-          f"🚀 Tomosha buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
-      )
-    else:
-      bot.answer_callback_query(
-          call.id, "❌ Balansingiz yetarli emas!", show_alert=True
-      )
-
+    price = 6000
+    service_name = "Tomosha"
   elif call.data == "order_comments":
-    if users_balance[user_id] >= 15000:
-      users_balance[user_id] -= 15000
-      bot.answer_callback_query(
-          call.id, "✅ Buyurtma qabul qilindi! Bajarilmoqda..."
-      )
-      bot.send_message(
-          call.message.chat.id,
-          f"🚀 Kommentariya buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
-      )
-    else:
-      bot.answer_callback_query(
-          call.id, "❌ Balansingiz yetarli emas!", show_alert=True
-      )
+    price = 15000
+    service_name = "Kommentariya"
+  else:
+    return
+
+  if users_balance[user_id] >= price:
+    users_balance[user_id] -= price
+    bot.answer_callback_query(call.id, "✅ Buyurtma qabul qilindi!")
+    bot.send_message(
+        call.message.chat.id,
+        f"🚀 {service_name} buyurtmangiz bazaga qo'shildi!\nQolgan balans: {users_balance[user_id]} so'm",
+    )
+  else:
+    bot.answer_callback_query(
+        call.id, "❌ Balansingiz yetarli emas!", show_alert=True
+    )
 
 
 print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
