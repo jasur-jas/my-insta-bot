@@ -1,310 +1,69 @@
+import os
 import telebot
-from telebot import types
+import yt_dlp
 
-TOKEN = "8646999261:AAGliHfLlH-PKHJtImas9erOsXKCdsyGPxs"
-ADMIN_ID = 8702640490  # Sizning Telegram ID raqamingiz
-
+TOKEN = "7953258525:AAH-Sj8V-1fX-3D8-72Q8J3g8J2L1"
 bot = telebot.TeleBot(TOKEN)
 
-# Ma'lumotlar bazasi
-users_balance = {}  # {user_id: balance}
-admin_income = {ADMIN_ID: 0}  # Sizning daromadingiz (kassangiz)
 
-# Admin va foydalanuvchilarning vaqtinchalik holatlari
-admin_withdrawing = {}
-user_waiting_for_link = {}  # {user_id: service_code}
-
-
-# /start komandasi
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-  user_id = message.from_user.id
-  if user_id not in users_balance:
-    users_balance[user_id] = 0
-
-  user_waiting_for_link[user_id] = None
-  if user_id == ADMIN_ID:
-    admin_withdrawing[user_id] = False
-
-  markup = types.ReplyKeyboardMarkup(resize_keyboard=True)
-  btn1 = types.KeyboardButton("🚀 Nakrutka urish")
-  btn2 = types.KeyboardButton("💰 Balans")
-  btn3 = types.KeyboardButton("🛠 Qo'llab-quvvatlash")
-
-  if user_id == ADMIN_ID:
-    btn_admin = types.KeyboardButton("⚙️ Admin Panel")
-    markup.add(btn1, btn2)
-    markup.add(btn3, btn_admin)
-  else:
-    markup.add(btn1, btn2)
-    markup.add(btn3)
-
-  bot.send_message(
-      message.chat.id,
-      "👋 Instagram nakrutka botiga xush kelibsiz.\nQuyidagi menyudan kerakli bo'limni tanlang:",
-      reply_markup=markup,
+  bot.reply_to(
+      message,
+      "Salom! Menga YouTube yoki Instagram (Reels/Post) havolasini yuboring,"
+      " men uni sizga yuklab beraman. 📥",
   )
 
 
-# Admin uchun balans qo'shish komandasi: /add ID SUMMA
-@bot.message_handler(commands=['add'])
-def add_balance(message):
-  if message.from_user.id != ADMIN_ID:
-    bot.send_message(message.chat.id, "❌ Bu buyruq faqat admin uchun!")
-    return
+@bot.message_handler(func=lambda message: True)
+def download_media(message):
+  url = message.text.strip()
 
-  try:
-    parts = message.text.split()
-    target_user_id = int(parts[1])
-    amount = int(parts[2])
-
-    if target_user_id not in users_balance:
-      users_balance[target_user_id] = 0
-
-    users_balance[target_user_id] += amount
-
-    bot.send_message(
-        message.chat.id,
-        f"✅ Foydalanuvchi ({target_user_id}) balansiga {amount:,} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]:,} so'm",
-    )
-    bot.send_message(
-        target_user_id,
-        f"🎉 Sizning balansingizga {amount:,} so'm qo'shildi!\nJami balans: {users_balance[target_user_id]:,} so'm",
-    )
-  except Exception as e:
-    bot.send_message(
-        message.chat.id,
-        "❌ Xato format!\nTo'g'ri format: `/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
-    )
-
-
-# Barcha matnli xabarlar va tugmalar shu yerda ishlaydi
-@bot.message_handler(content_types=['text'])
-def handle_text(message):
-  user_id = message.from_user.id
-  text = message.text.strip()
-
-  if user_id not in users_balance:
-    users_balance[user_id] = 0
-
-  # 1. Balans tugmasi (emojili yoki emojisiz ishlayveradigan qilib)
-  if "Balans" in text:
-    user_waiting_for_link[user_id] = None
-    balance = users_balance[user_id]
-    bot.send_message(
-        message.chat.id,
-        f"💰 Sizning balansingiz: {balance:,} so'm\n\n"
-        f"🆔 ID'ingiz: `{user_id}`\n\n"
-        f"💳 Balansni to'ldirish uchun karta raqam:\n"
-        f"`9860 3501 4391 7341` Baratov Jasur\n\n"
-        f"Pulni o'tkazib, chekni adminga yuboring: @Baratov_o6",
-        parse_mode="Markdown",
+  if not (
+      "youtube.com" in url
+      or "youtu.be" in url
+      or "instagram.com" in url
+      or "instagr.am" in url
+  ):
+    bot.reply_to(
+        message,
+        "Iltimos, faqat YouTube yoki Instagram havolasini yuboring!",
     )
     return
 
-  # 2. Admin Panel tugmasi
-  elif "Admin Panel" in text:
-    user_waiting_for_link[user_id] = None
-    if user_id == ADMIN_ID:
-      my_income = admin_income.get(ADMIN_ID, 0)
-      markup = types.InlineKeyboardMarkup()
-      markup.add(
-          types.InlineKeyboardButton(
-              "💵 Pulni yechib olish", callback_data="withdraw_income"
-          )
-      )
-      bot.send_message(
-          message.chat.id,
-          f"⚙️ **Admin Panel**\n\n"
-          f"💵 **Sizning umumiy daromadingiz (foydangiz):** {my_income:,} so'm\n\n"
-          f"Foydalanuvchiga balans qo'shish uchun quyidagi formatda yozing:\n"
-          f"`/add ID SUMMA`\nMasalan: `/add 8702640490 50000`",
-          parse_mode="Markdown",
-          reply_markup=markup,
-      )
-    else:
-      bot.send_message(message.chat.id, "❌ Siz admin emassiz!")
-    return
-
-  # 3. Qo'llab-quvvatlash tugmasi
-  elif "Qo'llab-quvvatlash" in text or "Qollab-quvvatlash" in text:
-    user_waiting_for_link[user_id] = None
-    bot.send_message(
-        message.chat.id,
-        "📞 Muammo yoki savollar bo'yicha adminga yozing: @Baratov_o6",
-    )
-    return
-
-  # 4. Nakrutka urish tugmasi
-  elif "Nakrutka urish" in text:
-    user_waiting_for_link[user_id] = None
-    markup = types.InlineKeyboardMarkup(row_width=1)
-    markup.add(
-        types.InlineKeyboardButton(
-            "👤 Obunachi (1000 ta = 20,000 so'm)", callback_data="order_subs"
-        ),
-        types.InlineKeyboardButton(
-            "❤️ Layk (1000 ta = 8,000 so'm)", callback_data="order_likes"
-        ),
-        types.InlineKeyboardButton(
-            "👀 Tomosha (1000 ta = 6,000 so'm)", callback_data="order_views"
-        ),
-        types.InlineKeyboardButton(
-            "💬 Kommentariya (100 ta = 15,000 so'm)",
-            callback_data="order_comments",
-        ),
-    )
-    bot.send_message(
-        message.chat.id,
-        "📦 Kerakli xizmat turini tanlang:",
-        reply_markup=markup,
-    )
-    return
-
-  # 5. Admin pul yechish uchun karta raqamini kiritayotgan bo'lsa
-  if user_id == ADMIN_ID and admin_withdrawing.get(user_id, False):
-    card_number = text
-    amount_to_withdraw = admin_income.get(ADMIN_ID, 0)
-
-    if amount_to_withdraw <= 0:
-      bot.send_message(message.chat.id, "❌ Kassangizda yechib olish uchun pul yo'q.")
-      admin_withdrawing[user_id] = False
-      return
-
-    admin_income[ADMIN_ID] = 0
-    admin_withdrawing[user_id] = False
-
-    bot.send_message(
-        message.chat.id,
-        f"✅ **Pulni yechish bo'yicha so'rov yuborildi!**\n\n"
-        f"💳 Karta: `{card_number}`\n"
-        f"💵 Summa: {amount_to_withdraw:,} so'm\n\n"
-        f"Tez orada ko'rsatilgan kartaga pul o'tkazib beriladi.",
-        parse_mode="Markdown",
-    )
-    return
-
-  # 6. Foydalanuvchi xizmat uchun Instagram havolasini yuborayotgan bo'lsa
-  if user_waiting_for_link.get(user_id):
-    link = text
-    service_code = user_waiting_for_link[user_id]
-    user_waiting_for_link[user_id] = None  # Holatni tozalash
-
-    services = {
-        "order_subs": {
-            "name": "Obunachi (1000 ta)",
-            "price": 20000,
-            "profit": 10000,
-        },
-        "order_likes": {
-            "name": "Layk (1000 ta)",
-            "price": 8000,
-            "profit": 7000,
-        },
-        "order_views": {
-            "name": "Tomosha (1000 ta)",
-            "price": 6000,
-            "profit": 5000,
-        },
-        "order_comments": {
-            "name": "Kommentariya (100 ta)",
-            "price": 15000,
-            "profit": 10000,
-        },
-    }
-
-    if service_code not in services:
-      bot.send_message(message.chat.id, "❌ Xatolik yuz berdi. Qaytadan urinib ko'ring.")
-      return
-
-    s_info = services[service_code]
-    price = s_info["price"]
-    profit = s_info["profit"]
-    service_name = s_info["name"]
-
-    if users_balance[user_id] >= price:
-      users_balance[user_id] -= price
-      admin_income[ADMIN_ID] = admin_income.get(ADMIN_ID, 0) + profit
-
-      bot.send_message(
-          message.chat.id,
-          f"✅ **Buyurtma qabul qilindi!**\n\n"
-          f"📦 Xizmat: {service_name}\n"
-          f"🔗 Havola: {link}\n"
-          f"💰 Yechildi: {price:,} so'm\n"
-          f"💳 Qolgan balans: {users_balance[user_id]:,} so'm\n\n"
-          f"Tez orada bajariladi!",
-          parse_mode="Markdown",
-      )
-
-      bot.send_message(
-          ADMIN_ID,
-          f"🔔 **Yangi buyurtma!**\n\n"
-          f"👤 Foydalanuvchi ID: `{user_id}`\n"
-          f"📦 Xizmat: {service_name}\n"
-          f"🔗 Havola: {link}\n"
-          f"💵 Tushgan foyda: {profit:,} so'm",
-          parse_mode="Markdown",
-      )
-    else:
-      bot.send_message(
-          message.chat.id,
-          f"❌ Balansingiz yetarli emas!\nKerakli summa: {price:,} so'm. Sizning balansingiz: {users_balance[user_id]:,} so'm",
-      )
-    return
-
-
-# Admin pul yechish tugmasi
-@bot.callback_query_handler(func=lambda call: call.data == "withdraw_income")
-def withdraw_callback(call):
-  user_id = call.from_user.id
-  if user_id != ADMIN_ID:
-    return
-
-  my_income = admin_income.get(ADMIN_ID, 0)
-  if my_income <= 0:
-    bot.answer_callback_query(
-        call.id, "❌ Kassangizda yechib olish uchun pul yo'q!", show_alert=True
-    )
-    return
-
-  admin_withdrawing[user_id] = True
-  bot.answer_callback_query(call.id)
-  bot.send_message(
-      call.message.chat.id,
-      f"💳 **Pulni yechib olish**\n\n"
-      f"Jami yechiladigan summa: **{my_income:,} so'm**\n\n"
-      f"Iltimos, pulni tashlab berishimiz uchun **karta raqamingizni** yuboring:",
-      parse_mode="Markdown",
+  sent_msg = bot.reply_to(
+      message, "⏳ Fayl yuklab olinmoqda, iltimos kuting..."
   )
 
-
-# Xizmat tugmalaridan biri bosilganda
-@bot.callback_query_handler(func=lambda call: call.data.startswith("order_"))
-def callback_query(call):
-  user_id = call.from_user.id
-  service_code = call.data
-
-  service_names = {
-      "order_subs": "Obunachi (1000 ta)",
-      "order_likes": "Layk (1000 ta)",
-      "order_views": "Tomosha (1000 ta)",
-      "order_comments": "Kommentariya (100 ta)",
+  # yt-dlp sozlamalari
+  ydl_opts = {
+      'format': 'best',
+      'outtmpl': 'downloaded_media.%(ext)s',
+      'max_filesize': 50 * 1024 * 1024,  # Telegram limiti uchun 50MB
   }
 
-  if service_code not in service_names:
-    return
+  try:
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+      info = ydl.extract_info(url, download=True)
+      filename = ydl.prepare_filename(info)
 
-  user_waiting_for_link[user_id] = service_code
+    # Faylni Telegramga yuborish
+    with open(filename, 'rb') as f:
+      bot.send_video(message.chat.id, f)
 
-  bot.answer_callback_query(call.id)
-  bot.send_message(
-      call.message.chat.id,
-      f"🔗 Iltimos, **{service_names[service_code]}** uchun kerakli **Instagram havolasini** yuboring:",
-      parse_mode="Markdown",
-  )
+    bot.delete_message(message.chat.id, sent_msg.message_id)
+
+    # Yuklab olingandan keyin serverdan o'chirish
+    if os.path.exists(filename):
+      os.remove(filename)
+
+  except Exception as e:
+    bot.edit_message_text(
+        f"❌ Xatolik yuz berdi:\n{str(e)}",
+        message.chat.id,
+        sent_msg.message_id,
+    )
 
 
-print("Bot qayta ishga tushdi va xabarlarni kutmoqda...")
-bot.infinity_polling()
-
+if __name__ == '__main__':
+  bot.infinity_polling()
